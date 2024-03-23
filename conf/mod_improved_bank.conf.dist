@@ -1,0 +1,44 @@
+#
+# Credits: silviu20092
+#
+
+[worldserver]
+
+########################################
+# Improved bank configuration
+########################################
+#
+#    ImprovedBank.AccountWide
+#        Description: Whether deposited items are account wide or not
+#        Default:     0 - Disabled
+#                     1 - Enabled
+#
+
+ImprovedBank.AccountWide = 1
+
+#
+#    ImprovedBank.Deposit.SearchBank
+#        Description: Show items from player's bank in deposit menu
+#        Default:     0 - Disabled
+#                     1 - Enabled - will also be able to deposit directly from bank
+#
+
+ImprovedBank.Deposit.SearchBank = 0
+
+#
+#    ImprovedBank.Deposit.AllReagents
+#        Description: Shows a menu to quickly deposit all reagents
+#        Default:     0 - Disabled
+#                     1 - Enabled
+#
+
+ImprovedBank.Deposit.AllReagents = 1
+
+#
+#    ImprovedBank.Deposit.AllReagents.Bank
+#        Description: Also search reagents in bank & bank bags when using Deposit all reagents menu
+#        Default:     0 - Disabled
+#                     1 - Enabled
+#
+
+ImprovedBank.Deposit.AllReagents.Bank = 0

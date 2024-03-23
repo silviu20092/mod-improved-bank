@@ -5,5 +5,11 @@ CREATE TABLE `mod_improved_bank` (
   `owner_account` int unsigned NOT NULL,
   `item_entry` int unsigned NOT NULL,
   `item_count` int unsigned NOT NULL,
+  `duration` int NOT NULL DEFAULT 0,
+  `charges` tinytext,
+  `flags` int unsigned DEFAULT 0,
+  `enchantments` text,
+  `randomPropertyId` smallint NOT NULL DEFAULT 0,
+  `durability` smallint unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Mod improved bank table';

@@ -4,10 +4,12 @@
 
 #include "ObjectMgr.h"
 #include "Chat.h"
+#include "ScriptMgr.h"
 #include "Config.h"
 #include "Player.h"
 #include "ScriptedGossip.h"
 #include "DatabaseEnv.h"
+#include "Tokenize.h"
 #include "improved_bank.h"
 
 ImprovedBank::ImprovedBank()
@@ -51,16 +53,38 @@ std::string ImprovedBank::ItemIcon(uint32 entry) const
     return ItemIcon(entry, 30, 30, 0, 0);
 }
 
-std::string ImprovedBank::ItemNameWithLocale(const Player* player, const ItemTemplate* itemTemplate) const
+std::string ImprovedBank::ItemNameWithLocale(const Player* player, const ItemTemplate* itemTemplate, int32 randomPropertyId) const
 {
     LocaleConstant loc_idx = player->GetSession()->GetSessionDbLocaleIndex();
     std::string name = itemTemplate->Name1;
     if (ItemLocale const* il = sObjectMgr->GetItemLocale(itemTemplate->ItemId))
         ObjectMgr::GetLocaleString(il->Name, loc_idx, name);
+
+    std::array<char const*, 16> const* suffix = nullptr;
+    if (randomPropertyId < 0)
+    {
+        if (const ItemRandomSuffixEntry* itemRandEntry = sItemRandomSuffixStore.LookupEntry(-randomPropertyId))
+            suffix = &itemRandEntry->Name;
+    }
+    else
+    {
+        if (const ItemRandomPropertiesEntry* itemRandEntry = sItemRandomPropertiesStore.LookupEntry(randomPropertyId))
+            suffix = &itemRandEntry->Name;
+    }
+    if (suffix)
+    {
+        std::string_view test((*suffix)[(name != itemTemplate->Name1) ? loc_idx : DEFAULT_LOCALE]);
+        if (!test.empty())
+        {
+            name += ' ';
+            name += test;
+        }
+    }
+
     return name;
 }
 
-std::string ImprovedBank::ItemLink(const Player* player, const ItemTemplate* itemTemplate) const
+std::string ImprovedBank::ItemLink(const Player* player, const ItemTemplate* itemTemplate, int32 randomPropertyId) const
 {
     std::stringstream oss;
     oss << "|c";
@@ -68,16 +92,16 @@ std::string ImprovedBank::ItemLink(const Player* player, const ItemTemplate* ite
     oss << "|Hitem:";
     oss << itemTemplate->ItemId;
     oss << ":0:0:0:0:0:0:0:0:0|h[";
-    oss << ItemNameWithLocale(player, itemTemplate);
+    oss << ItemNameWithLocale(player, itemTemplate, randomPropertyId);
     oss << "]|h|r";
 
     return oss.str();
 }
 
-std::string ImprovedBank::ItemLink(const Player* player, uint32 entry) const
+std::string ImprovedBank::ItemLink(const Player* player, uint32 entry, int32 randomPropertyId) const
 {
     const ItemTemplate* itemTemplate = sObjectMgr->GetItemTemplate(entry);
-    return ItemLink(player, itemTemplate);
+    return ItemLink(player, itemTemplate, randomPropertyId);
 }
 
 void ImprovedBank::AddDepositItem(const Player* player, const Item* item, PagedData& pagedData, const std::string& from) const
@@ -95,11 +119,11 @@ void ImprovedBank::AddDepositItem(const Player* player, const Item* item, PagedD
     ItemIdentifier itemIdentifier;
     itemIdentifier.id = pagedData.data.size();
     itemIdentifier.guid = item->GetGUID();
-    itemIdentifier.name = ItemNameWithLocale(player, itemTemplate);
+    itemIdentifier.name = ItemNameWithLocale(player, itemTemplate, item->GetItemRandomPropertyId());
 
     std::ostringstream oss;
     oss << ItemIcon(item->GetEntry());
-    oss << ItemLink(player, itemTemplate);
+    oss << ItemLink(player, itemTemplate, item->GetItemRandomPropertyId());
     if (item->GetCount() > 1)
         oss << " - " << item->GetCount() << "x";
     oss << " - IN " << from;
@@ -207,10 +231,33 @@ const ImprovedBank::ItemIdentifier* ImprovedBank::FindItemIdentifierById(uint32 
     return nullptr;
 }
 
+std::string ImprovedBank::GetItemCharges(const Item* item) const
+{
+    std::ostringstream oss;
+    for (uint8 i = 0; i < MAX_ITEM_PROTO_SPELLS; ++i)
+        oss << item->GetSpellCharges(i) << ' ';
+    return oss.str();
+}
+
+std::string ImprovedBank::GetItemEnchantments(const Item* item) const
+{
+    std::ostringstream oss;
+    for (uint8 i = 0; i < MAX_ENCHANTMENT_SLOT; ++i)
+    {
+        oss << item->GetEnchantmentId(EnchantmentSlot(i)) << ' ';
+        oss << item->GetEnchantmentDuration(EnchantmentSlot(i)) << ' ';
+        oss << item->GetEnchantmentCharges(EnchantmentSlot(i)) << ' ';
+    }
+    return oss.str();
+}
+
 void ImprovedBank::AddDepositItemToDatabase(const Player* player, const Item* item) const
 {
-    CharacterDatabase.Execute("INSERT INTO mod_improved_bank(owner_guid, owner_account, item_entry, item_count) VALUES ({}, {}, {}, {})",
-        player->GetGUID().GetCounter(), player->GetSession()->GetAccountId(), item->GetEntry(), item->GetCount());
+    CharacterDatabase.Execute("INSERT INTO mod_improved_bank(owner_guid, owner_account, item_entry, item_count, duration, charges, flags, enchantments, randomPropertyId, durability) VALUES ({}, {}, {}, {}, {}, \"{}\", {}, \"{}\", {}, {})",
+        player->GetGUID().GetCounter(), player->GetSession()->GetAccountId(), item->GetEntry(), item->GetCount(),
+        item->GetUInt32Value(ITEM_FIELD_DURATION), GetItemCharges(item), item->GetUInt32Value(ITEM_FIELD_FLAGS), GetItemEnchantments(item),
+        item->GetItemRandomPropertyId(), item->GetUInt32Value(ITEM_FIELD_DURABILITY));
+
 }
 
 bool ImprovedBank::DepositItem(ObjectGuid itemGuid, Player* player, uint32* count)
@@ -248,7 +295,7 @@ void ImprovedBank::BuildWithdrawItemCatalogue(const Player* player, PagedData& p
 {
     pagedData.Reset();
 
-    std::string baseQuery = "select mib.id, mib.owner_guid, mib.item_entry, mib.item_count, ifnull(ch.name, \"CHAR DELETED\") ch_name from mod_improved_bank mib "
+    std::string baseQuery = "select mib.id, mib.owner_guid, mib.item_entry, mib.item_count, ifnull(ch.name, \"CHAR DELETED\") ch_name, duration, charges, flags, enchantments, randomPropertyId, durability from mod_improved_bank mib "
         "left outer join characters ch on mib.owner_guid = ch.guid where owner_account = {}";
     QueryResult result;
 
@@ -270,22 +317,108 @@ void ImprovedBank::BuildWithdrawItemCatalogue(const Player* player, PagedData& p
         const ItemTemplate* itemTemplate = sObjectMgr->GetItemTemplate(itemIdentifier.entry);
         if (!itemTemplate)
             continue;
-        itemIdentifier.name = ItemNameWithLocale(player, itemTemplate);
+        int32 randomPropertyId = fields[9].Get<int32>();
+        itemIdentifier.randomPropertyId = randomPropertyId;
+        itemIdentifier.name = ItemNameWithLocale(player, itemTemplate, randomPropertyId);
         itemIdentifier.count = fields[3].Get<uint32>();
 
         std::ostringstream oss;
         oss << ItemIcon(itemIdentifier.entry);
-        oss << ItemLink(player, itemTemplate);
+        oss << ItemLink(player, itemTemplate, randomPropertyId);
         if (itemIdentifier.count > 1)
             oss << " - " << itemIdentifier.count << "x";
         if (GetAccountWide() && player->GetGUID().GetCounter() != fields[1].Get<uint32>())
             oss << " - FROM " << fields[4].Get<std::string>();
         itemIdentifier.uiName = oss.str();
 
+        itemIdentifier.duration = fields[5].Get<uint32>();
+        itemIdentifier.charges = fields[6].Get<std::string>();
+        itemIdentifier.flags = fields[7].Get<uint32>();
+        itemIdentifier.enchants = fields[8].Get<std::string>();
+        itemIdentifier.durability = fields[10].Get<uint32>();
+
         pagedData.data.push_back(itemIdentifier);
     } while (result->NextRow());
 
     pagedData.SortAndCalculateTotals();
+}
+
+bool ImprovedBank::LoadDataIntoItemFields(Item* item, std::string const& data, uint32 startOffset, uint32 count)
+{
+    if (data.empty())
+        return false;
+
+    std::vector<std::string_view> tokens = Acore::Tokenize(data, ' ', false);
+
+    if (tokens.size() != count)
+        return false;
+
+    for (uint32 index = 0; index < count; ++index)
+    {
+        Optional<uint32> val = Acore::StringTo<uint32>(tokens[index]);
+        if (!val)
+        {
+            return false;
+        }
+
+        item->UpdateUInt32Value(startOffset + index, *val);
+    }
+
+    return true;
+}
+
+Item* ImprovedBank::CreateItem(Player* player, ItemPosCountVec const& dest, uint32 itemEntry, bool update, int32 randomPropertyId,
+    uint32 duration, const std::string& charges, uint32 flags, const std::string& enchants, uint32 durability)
+{
+    uint32 count = 0;
+    for (ItemPosCountVec::const_iterator itr = dest.begin(); itr != dest.end(); ++itr)
+        count += itr->count;
+
+    Item* newItem = Item::CreateItem(itemEntry, count, player, false, randomPropertyId);
+    if (newItem != nullptr)
+    {
+        ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(itemEntry);
+        if (!itemTemplate)
+        {
+            delete newItem;
+            return nullptr;
+        }
+
+        newItem->SetUInt32Value(ITEM_FIELD_DURATION, duration);
+        if ((itemTemplate->Duration == 0) != (duration == 0))
+            newItem->SetUInt32Value(ITEM_FIELD_DURATION, itemTemplate->Duration);
+
+        std::vector<std::string_view> tokens = Acore::Tokenize(charges, ' ', false);
+        if (tokens.size() == MAX_ITEM_PROTO_SPELLS)
+        {
+            for (uint8 i = 0; i < MAX_ITEM_PROTO_SPELLS; ++i)
+            {
+                if (Optional<int32> charges = Acore::StringTo<int32>(tokens[i]))
+                    newItem->SetSpellCharges(i, *charges);
+            }
+        }
+
+        newItem->SetUInt32Value(ITEM_FIELD_FLAGS, flags);
+        if (newItem->IsSoulBound() && itemTemplate->Bonding == NO_BIND && sScriptMgr->CanApplySoulboundFlag(newItem, itemTemplate))
+            newItem->ApplyModFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_SOULBOUND, false);
+
+        LoadDataIntoItemFields(newItem, enchants, ITEM_FIELD_ENCHANTMENT_1_1, MAX_ENCHANTMENT_SLOT * MAX_ENCHANTMENT_OFFSET);
+
+        newItem->SetUInt32Value(ITEM_FIELD_DURABILITY, durability);
+        if (durability > itemTemplate->MaxDurability && !newItem->HasFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_WRAPPED))
+            newItem->SetUInt32Value(ITEM_FIELD_DURABILITY, itemTemplate->MaxDurability);
+
+        if (itemTemplate->Quality >= ITEM_QUALITY_RARE)
+            player->AdditionalSavingAddMask(ADDITIONAL_SAVING_INVENTORY_AND_GOLD);
+
+        player->ItemAddedQuestCheck(itemEntry, count);
+        player->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_RECEIVE_EPIC_ITEM, itemEntry, count);
+        player->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_OWN_ITEM, itemEntry, count);
+        newItem = player->StoreItem(dest, newItem, update);
+
+        sScriptMgr->OnStoreNewItem(player, newItem, count);
+    }
+    return newItem;
 }
 
 bool ImprovedBank::WithdrawItem(uint32 id, Player* player, PagedData& pagedData)
@@ -298,7 +431,7 @@ bool ImprovedBank::WithdrawItem(uint32 id, Player* player, PagedData& pagedData)
     InventoryResult msg = player->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, itemIdentifier->entry, itemIdentifier->count);
     if (msg == EQUIP_ERR_OK)
     {
-        Item* item = player->StoreNewItem(dest, itemIdentifier->entry, true);
+        Item* item = CreateItem(player, dest, itemIdentifier->entry, true, itemIdentifier->randomPropertyId, itemIdentifier->duration, itemIdentifier->charges, itemIdentifier->flags, itemIdentifier->enchants, itemIdentifier->durability);
         player->SendNewItem(item, itemIdentifier->count, true, false);
 
         RemoveItemFromDatabase(itemIdentifier->id);

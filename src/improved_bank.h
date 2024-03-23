@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include "SharedDefines.h"
+#include "Player.h"
 
 class ImprovedBank
 {
@@ -20,6 +21,14 @@ public:
         ObjectGuid guid;
         std::string name;
         std::string uiName;
+
+        // item specific properties, used for withdraw
+        uint32 duration;
+        std::string charges;
+        uint32 flags;
+        std::string enchants;
+        int32 randomPropertyId;
+        uint32 durability;
 
         bool operator<(const ItemIdentifier& a)
         {
@@ -54,9 +63,9 @@ private:
     bool depositReagentsSearchBank;
 
     std::string ItemIcon(uint32 entry, uint32 width, uint32 height, int x, int y) const;
-    std::string ItemNameWithLocale(const Player* player, const ItemTemplate* itemTemplate) const;
-    std::string ItemLink(const Player* player, const ItemTemplate* itemTemplate) const;
-    std::string ItemLink(const Player* player, uint32 entry) const;
+    std::string ItemNameWithLocale(const Player* player, const ItemTemplate* itemTemplate, int32 randomPropertyId) const;
+    std::string ItemLink(const Player* player, const ItemTemplate* itemTemplate, int32 randomPropertyId) const;
+    std::string ItemLink(const Player* player, uint32 entry, int32 randomPropertyId) const;
 
     void AddDepositItem(const Player* player, const Item* item, PagedData& pagedData, const std::string& from) const;
     void AddDepositItemToDatabase(const Player* player, const Item* item) const;
@@ -66,6 +75,13 @@ private:
 
     bool DepositItem(ObjectGuid itemGuid, Player* player, uint32* count = nullptr);
     bool IsReagent(const Item* item) const;
+
+    std::string GetItemCharges(const Item* item) const;
+    std::string GetItemEnchantments(const Item* item) const;
+
+    Item* CreateItem(Player* player, ItemPosCountVec const& dest, uint32 itemEntry, bool update, int32 randomPropertyId,
+        uint32 duration, const std::string& charges, uint32 flags, const std::string& enchants, uint32 durability);
+    bool LoadDataIntoItemFields(Item* item, std::string const& data, uint32 startOffset, uint32 count);
 public:
     static ImprovedBank* instance();
 

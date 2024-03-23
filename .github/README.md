@@ -8,5 +8,11 @@ Gossip NPC that allows player to deposit an infinite number of items and then wi
 
 Simply clone the repository and add mod-improved-bank to the modules folder. Re-run cmake and rebuild the project. The .sql files should be imported automatically, if not then you should manually apply them.
 
+## Photos
+
+![withdraw](https://github.com/silviu20092/mod-improved-bank/blob/master/pics/pict1.png?raw=true)
+![deposit](https://github.com/silviu20092/mod-improved-bank/blob/master/pics/pict3.png?raw=true)
+![main menu](https://github.com/silviu20092/mod-improved-bank/blob/master/pics/pict2.png?raw=true)
+
 ## Credits
 - silviu20092

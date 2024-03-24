@@ -23,12 +23,16 @@ public:
         std::string uiName;
 
         // item specific properties, used for withdraw
-        uint32 duration;
+        int32 duration;
         std::string charges;
         uint32 flags;
         std::string enchants;
         int32 randomPropertyId;
         uint32 durability;
+        uint32 depositTime;
+
+        // deposit info, for warnings
+        bool tradeable;
 
         bool operator<(const ItemIdentifier& a)
         {
@@ -70,6 +74,7 @@ private:
     void AddDepositItem(const Player* player, const Item* item, PagedData& pagedData, const std::string& from) const;
     void AddDepositItemToDatabase(const Player* player, const Item* item) const;
     const ItemIdentifier* FindItemIdentifierById(uint32 id, const PagedData& pagedData) const;
+    ItemIdentifier* FindItemIdentifierById(uint32 id, PagedData& pagedData);
     void RemoveFromPagedData(uint32 id, PagedData& pagedData);
     void RemoveItemFromDatabase(uint32 id);
 
@@ -98,7 +103,7 @@ public:
 
     void BuildItemCatalogueFromInventory(const Player* player, PagedData& pagedData);
     bool AddPagedData(Player* player, Creature* creature, const PagedData& pagedData, uint32 page, uint32 sender, uint32 pageSender, uint32 refreshSender);
-    void NoPagedData(Player* player, Creature* creature);
+    void NoPagedData(Player* player);
 
     bool DepositItem(uint32 id, Player* player, const PagedData& pagedData);
 

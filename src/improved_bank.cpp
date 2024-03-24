@@ -10,6 +10,7 @@
 #include "ScriptedGossip.h"
 #include "DatabaseEnv.h"
 #include "Tokenize.h"
+#include "GameTime.h"
 #include "improved_bank.h"
 
 ImprovedBank::ImprovedBank()
@@ -113,9 +114,6 @@ void ImprovedBank::AddDepositItem(const Player* player, const Item* item, PagedD
     if (item->IsNotEmptyBag())
         return;
 
-    if (item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_REFUNDABLE))
-        return;
-
     ItemIdentifier itemIdentifier;
     itemIdentifier.id = pagedData.data.size();
     itemIdentifier.guid = item->GetGUID();
@@ -127,6 +125,15 @@ void ImprovedBank::AddDepositItem(const Player* player, const Item* item, PagedD
     if (item->GetCount() > 1)
         oss << " - " << item->GetCount() << "x";
     oss << " - IN " << from;
+
+    itemIdentifier.duration = item->GetUInt32Value(ITEM_FIELD_DURATION);
+    itemIdentifier.tradeable = item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_BOP_TRADEABLE);
+
+    if (itemIdentifier.duration > 0)
+        oss << " - |cffb50505DURATION|r";
+    if (itemIdentifier.tradeable)
+        oss << " - |cff|cffb50505TRADEABLE|r";
+
     itemIdentifier.uiName = oss.str();
 
     pagedData.data.push_back(itemIdentifier);
@@ -203,7 +210,17 @@ bool ImprovedBank::AddPagedData(Player* player, Creature* creature, const PagedD
     for (uint32 i = lowIndex; i <= highIndex; i++)
     {
         const ItemIdentifier& itemInfo = itemCatalogue[i];
-        AddGossipItemFor(player, GOSSIP_ICON_MONEY_BAG, itemInfo.uiName, sender, GOSSIP_ACTION_INFO_DEF + itemInfo.id);
+        if (sender == GOSSIP_SENDER_MAIN + 1)
+        {
+            if (itemInfo.tradeable)
+                AddGossipItemFor(player, GOSSIP_ICON_MONEY_BAG, itemInfo.uiName, sender, GOSSIP_ACTION_INFO_DEF + itemInfo.id, "Item is eligible for BOP trade. Depositing it will invalidate this!", 0, false);
+            else if (itemInfo.duration > 0)
+                AddGossipItemFor(player, GOSSIP_ICON_MONEY_BAG, itemInfo.uiName, sender, GOSSIP_ACTION_INFO_DEF + itemInfo.id, "Item has an expiration time. Timer will still advance while the item is deposited!", 0, false);
+            else
+                AddGossipItemFor(player, GOSSIP_ICON_MONEY_BAG, itemInfo.uiName, sender, GOSSIP_ACTION_INFO_DEF + itemInfo.id);
+        }
+        else
+            AddGossipItemFor(player, GOSSIP_ICON_MONEY_BAG, itemInfo.uiName, sender, GOSSIP_ACTION_INFO_DEF + itemInfo.id);
     }
 
     AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "[Refresh]", refreshSender, GOSSIP_ACTION_INFO_DEF + page);
@@ -215,7 +232,7 @@ bool ImprovedBank::AddPagedData(Player* player, Creature* creature, const PagedD
     return true;
 }
 
-void ImprovedBank::NoPagedData(Player* player, Creature* creature)
+void ImprovedBank::NoPagedData(Player* player)
 {
     AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cffb50505NOTHING ON THIS PAGE, GO BACK|r", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
     AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<- [Back]", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
@@ -228,6 +245,16 @@ const ImprovedBank::ItemIdentifier* ImprovedBank::FindItemIdentifierById(uint32 
     });
     if (citer != pagedData.data.end())
         return &*citer;
+    return nullptr;
+}
+
+ImprovedBank::ItemIdentifier* ImprovedBank::FindItemIdentifierById(uint32 id, PagedData& pagedData)
+{
+    ItemIdentifierContainer::iterator iter = std::find_if(pagedData.data.begin(), pagedData.data.end(), [&id](const ItemIdentifier& itemIdentifier) {
+        return itemIdentifier.id == id;
+        });
+    if (iter != pagedData.data.end())
+        return &*iter;
     return nullptr;
 }
 
@@ -253,10 +280,10 @@ std::string ImprovedBank::GetItemEnchantments(const Item* item) const
 
 void ImprovedBank::AddDepositItemToDatabase(const Player* player, const Item* item) const
 {
-    CharacterDatabase.Execute("INSERT INTO mod_improved_bank(owner_guid, owner_account, item_entry, item_count, duration, charges, flags, enchantments, randomPropertyId, durability) VALUES ({}, {}, {}, {}, {}, \"{}\", {}, \"{}\", {}, {})",
+    CharacterDatabase.Execute("INSERT INTO mod_improved_bank(owner_guid, owner_account, item_entry, item_count, duration, charges, flags, enchantments, randomPropertyId, durability, deposit_time) VALUES ({}, {}, {}, {}, {}, \"{}\", {}, \"{}\", {}, {}, {})",
         player->GetGUID().GetCounter(), player->GetSession()->GetAccountId(), item->GetEntry(), item->GetCount(),
         item->GetUInt32Value(ITEM_FIELD_DURATION), GetItemCharges(item), item->GetUInt32Value(ITEM_FIELD_FLAGS), GetItemEnchantments(item),
-        item->GetItemRandomPropertyId(), item->GetUInt32Value(ITEM_FIELD_DURABILITY));
+        item->GetItemRandomPropertyId(), item->GetUInt32Value(ITEM_FIELD_DURABILITY), (uint32)GameTime::GetGameTime().count());
 
 }
 
@@ -267,9 +294,6 @@ bool ImprovedBank::DepositItem(ObjectGuid itemGuid, Player* player, uint32* coun
         return false;
 
     if (item->IsNotEmptyBag())
-        return false;
-
-    if (item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_REFUNDABLE))
         return false;
 
     AddDepositItemToDatabase(player, item);
@@ -295,7 +319,7 @@ void ImprovedBank::BuildWithdrawItemCatalogue(const Player* player, PagedData& p
 {
     pagedData.Reset();
 
-    std::string baseQuery = "select mib.id, mib.owner_guid, mib.item_entry, mib.item_count, ifnull(ch.name, \"CHAR DELETED\") ch_name, duration, charges, flags, enchantments, randomPropertyId, durability from mod_improved_bank mib "
+    std::string baseQuery = "select mib.id, mib.owner_guid, mib.item_entry, mib.item_count, ifnull(ch.name, \"CHAR DELETED\") ch_name, duration, charges, flags, enchantments, randomPropertyId, durability, deposit_time from mod_improved_bank mib "
         "left outer join characters ch on mib.owner_guid = ch.guid where owner_account = {}";
     QueryResult result;
 
@@ -329,9 +353,25 @@ void ImprovedBank::BuildWithdrawItemCatalogue(const Player* player, PagedData& p
             oss << " - " << itemIdentifier.count << "x";
         if (GetAccountWide() && player->GetGUID().GetCounter() != fields[1].Get<uint32>())
             oss << " - FROM " << fields[4].Get<std::string>();
+
+        itemIdentifier.depositTime = fields[11].Get<uint32>();
+
+        int32 duration = (int32)fields[5].Get<uint32>();
+        if (duration == 0)
+            itemIdentifier.duration = 0;
+        else
+        {
+            uint32 diff = GameTime::GetGameTime().count() - itemIdentifier.depositTime;
+            itemIdentifier.duration = duration - diff;
+            if (itemIdentifier.duration <= 0)
+            {
+                itemIdentifier.duration = -1;
+                oss << " - |cffb50505EXPIRED|r";
+            }
+        }
+
         itemIdentifier.uiName = oss.str();
 
-        itemIdentifier.duration = fields[5].Get<uint32>();
         itemIdentifier.charges = fields[6].Get<std::string>();
         itemIdentifier.flags = fields[7].Get<uint32>();
         itemIdentifier.enchants = fields[8].Get<std::string>();
@@ -377,16 +417,9 @@ Item* ImprovedBank::CreateItem(Player* player, ItemPosCountVec const& dest, uint
     Item* newItem = Item::CreateItem(itemEntry, count, player, false, randomPropertyId);
     if (newItem != nullptr)
     {
-        ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(itemEntry);
-        if (!itemTemplate)
-        {
-            delete newItem;
-            return nullptr;
-        }
+        ItemTemplate const* itemTemplate = newItem->GetTemplate();
 
         newItem->SetUInt32Value(ITEM_FIELD_DURATION, duration);
-        if ((itemTemplate->Duration == 0) != (duration == 0))
-            newItem->SetUInt32Value(ITEM_FIELD_DURATION, itemTemplate->Duration);
 
         std::vector<std::string_view> tokens = Acore::Tokenize(charges, ' ', false);
         if (tokens.size() == MAX_ITEM_PROTO_SPELLS)
@@ -423,15 +456,34 @@ Item* ImprovedBank::CreateItem(Player* player, ItemPosCountVec const& dest, uint
 
 bool ImprovedBank::WithdrawItem(uint32 id, Player* player, PagedData& pagedData)
 {
-    const ItemIdentifier* itemIdentifier = FindItemIdentifierById(id, pagedData);
+    ItemIdentifier* itemIdentifier = FindItemIdentifierById(id, pagedData);
     if (itemIdentifier == nullptr)
         return false;
+
+    // item expired, just remove it
+    if (itemIdentifier->duration == -1)
+    {
+        RemoveItemFromDatabase(itemIdentifier->id);
+        return false;
+    }
+
+    // re-check with deposit time if item expired, maybe player did not refresh in the meantime
+    if (itemIdentifier->duration > 0)
+    {
+        uint32 diff = GameTime::GetGameTime().count() - itemIdentifier->depositTime;
+        itemIdentifier->duration = itemIdentifier->duration - diff;
+        if (itemIdentifier->duration <= 0)
+        {
+            RemoveItemFromDatabase(itemIdentifier->id);
+            return false;
+        }
+    }
 
     ItemPosCountVec dest;
     InventoryResult msg = player->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, itemIdentifier->entry, itemIdentifier->count);
     if (msg == EQUIP_ERR_OK)
     {
-        Item* item = CreateItem(player, dest, itemIdentifier->entry, true, itemIdentifier->randomPropertyId, itemIdentifier->duration, itemIdentifier->charges, itemIdentifier->flags, itemIdentifier->enchants, itemIdentifier->durability);
+        Item* item = CreateItem(player, dest, itemIdentifier->entry, true, itemIdentifier->randomPropertyId, (uint32)itemIdentifier->duration, itemIdentifier->charges, itemIdentifier->flags, itemIdentifier->enchants, itemIdentifier->durability);
         player->SendNewItem(item, itemIdentifier->count, true, false);
 
         RemoveItemFromDatabase(itemIdentifier->id);

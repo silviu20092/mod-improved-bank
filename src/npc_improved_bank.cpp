@@ -17,7 +17,7 @@ private:
         {
             if (page == 0)
             {
-                sImprovedBank->NoPagedData(player, creature);
+                sImprovedBank->NoPagedData(player);
                 break;
             }
             else
@@ -105,7 +105,7 @@ public:
             uint32 id = action - GOSSIP_ACTION_INFO_DEF;
             if (!sImprovedBank->WithdrawItem(id, player, withdrawPageData))
             {
-                ChatHandler(player->GetSession()).SendSysMessage("Could not withdraw item. Possible reasons: item already withdrawn, no space in inventory, unique item already in inventory.");
+                ChatHandler(player->GetSession()).SendSysMessage("Could not withdraw item. Possible reasons: item already withdrawn, no space in inventory, unique item already in inventory, item expired.");
                 CloseGossipMenuFor(player);
                 return false;
             }

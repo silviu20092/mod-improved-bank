@@ -102,7 +102,7 @@ public:
     std::string ItemIcon(uint32 entry) const;
 
     void BuildItemCatalogueFromInventory(const Player* player, PagedData& pagedData);
-    bool AddPagedData(Player* player, Creature* creature, const PagedData& pagedData, uint32 page, uint32 sender, uint32 pageSender, uint32 refreshSender);
+    bool AddPagedData(Player* player, const PagedData& pagedData, uint32 page, uint32 sender, uint32 pageSender, uint32 refreshSender);
     void NoPagedData(Player* player);
 
     bool DepositItem(uint32 id, Player* player, const PagedData& pagedData);

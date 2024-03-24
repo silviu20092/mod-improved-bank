@@ -193,7 +193,7 @@ void ImprovedBank::PagedData::SortAndCalculateTotals()
     }
 }
 
-bool ImprovedBank::AddPagedData(Player* player, Creature* creature, const PagedData& pagedData, uint32 page, uint32 sender, uint32 pageSender, uint32 refreshSender)
+bool ImprovedBank::AddPagedData(Player* player, const PagedData& pagedData, uint32 page, uint32 sender, uint32 pageSender, uint32 refreshSender)
 {
     const ItemIdentifierContainer& itemCatalogue = pagedData.data;
     if (itemCatalogue.size() == 0 || (page + 1) > pagedData.totalPages)
@@ -295,6 +295,9 @@ bool ImprovedBank::DepositItem(ObjectGuid itemGuid, Player* player, uint32* coun
 
     if (item->IsNotEmptyBag())
         return false;
+
+    if (item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_BOP_TRADEABLE))
+        item->RemoveFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_BOP_TRADEABLE);
 
     AddDepositItemToDatabase(player, item);
 

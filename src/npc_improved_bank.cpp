@@ -13,7 +13,7 @@ private:
     bool AddPagedDataNpc(Player* player, Creature* creature, ImprovedBank::PagedData& pagedData, uint32 page, uint32 sender, uint32 pageSender, uint32 refreshSender)
     {
         ClearGossipMenuFor(player);
-        while (!sImprovedBank->AddPagedData(player, creature, pagedData, page, sender, pageSender, refreshSender))
+        while (!sImprovedBank->AddPagedData(player, pagedData, page, sender, pageSender, refreshSender))
         {
             if (page == 0)
             {

@@ -9,6 +9,7 @@ Use .npc add 200001 to spawn the bank NPC.
 ## How to install
 
 Simply clone the repository and add mod-improved-bank to the modules folder. Re-run cmake and rebuild the project. The .sql files should be imported automatically, if not then you should manually apply them.
+This module requires at least this AzerothCore version: https://github.com/azerothcore/azerothcore-wotlk/commit/5b8bc792b8a042c2ebd2a5dc8670de0f494811b8
 
 ## Photos
 

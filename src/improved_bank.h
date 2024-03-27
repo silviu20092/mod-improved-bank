@@ -69,7 +69,6 @@ private:
     std::string ItemIcon(uint32 entry, uint32 width, uint32 height, int x, int y) const;
     std::string ItemNameWithLocale(const Player* player, const ItemTemplate* itemTemplate, int32 randomPropertyId) const;
     std::string ItemLink(const Player* player, const ItemTemplate* itemTemplate, int32 randomPropertyId) const;
-    std::string ItemLink(const Player* player, uint32 entry, int32 randomPropertyId) const;
 
     void AddDepositItem(const Player* player, const Item* item, PagedData& pagedData, const std::string& from) const;
     void AddDepositItemToDatabase(const Player* player, const Item* item) const;

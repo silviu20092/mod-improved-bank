@@ -99,12 +99,6 @@ std::string ImprovedBank::ItemLink(const Player* player, const ItemTemplate* ite
     return oss.str();
 }
 
-std::string ImprovedBank::ItemLink(const Player* player, uint32 entry, int32 randomPropertyId) const
-{
-    const ItemTemplate* itemTemplate = sObjectMgr->GetItemTemplate(entry);
-    return ItemLink(player, itemTemplate, randomPropertyId);
-}
-
 void ImprovedBank::AddDepositItem(const Player* player, const Item* item, PagedData& pagedData, const std::string& from) const
 {
     ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(item->GetEntry());

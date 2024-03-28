@@ -1,3 +1,7 @@
+/*
+ * Credits: silviu20092
+ */
+
 #include "ScriptMgr.h"
 #include "Config.h"
 #include "improved_bank.h"

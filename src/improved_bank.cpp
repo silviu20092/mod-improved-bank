@@ -126,7 +126,7 @@ void ImprovedBank::AddDepositItem(const Player* player, const Item* item, PagedD
     if (itemIdentifier.duration > 0)
         oss << " - |cffb50505DURATION|r";
     if (itemIdentifier.tradeable)
-        oss << " - |cff|cffb50505TRADEABLE|r";
+        oss << " - |cffb50505TRADEABLE|r";
 
     itemIdentifier.uiName = oss.str();
 

@@ -30,6 +30,8 @@ public:
         int32 randomPropertyId;
         uint32 durability;
         uint32 depositTime;
+        uint32 creatorGuid;
+        uint32 giftCreatorGuid;
 
         // deposit info, for warnings
         bool tradeable;
@@ -84,7 +86,8 @@ private:
     std::string GetItemEnchantments(const Item* item) const;
 
     Item* CreateItem(Player* player, ItemPosCountVec const& dest, uint32 itemEntry, bool update, int32 randomPropertyId,
-        uint32 duration, const std::string& charges, uint32 flags, const std::string& enchants, uint32 durability);
+        uint32 duration, const std::string& charges, uint32 flags, const std::string& enchants, uint32 durability,
+        uint32 creatorGuid, uint32 giftCreatorGuid);
     bool LoadDataIntoItemFields(Item* item, std::string const& data, uint32 startOffset, uint32 count);
 public:
     static ImprovedBank* instance();

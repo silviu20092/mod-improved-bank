@@ -274,11 +274,12 @@ std::string ImprovedBank::GetItemEnchantments(const Item* item) const
 
 void ImprovedBank::AddDepositItemToDatabase(const Player* player, const Item* item) const
 {
-    CharacterDatabase.Execute("INSERT INTO mod_improved_bank(owner_guid, owner_account, item_entry, item_count, duration, charges, flags, enchantments, randomPropertyId, durability, deposit_time) VALUES ({}, {}, {}, {}, {}, \"{}\", {}, \"{}\", {}, {}, {})",
+    CharacterDatabase.Execute("INSERT INTO mod_improved_bank(owner_guid, owner_account, item_entry, item_count, "
+            "duration, charges, flags, enchantments, randomPropertyId, durability, deposit_time, creatorGuid, giftCreatorGuid) VALUES ({}, {}, {}, {}, {}, \"{}\", {}, \"{}\", {}, {}, {}, {}, {})",
         player->GetGUID().GetCounter(), player->GetSession()->GetAccountId(), item->GetEntry(), item->GetCount(),
         item->GetUInt32Value(ITEM_FIELD_DURATION), GetItemCharges(item), item->GetUInt32Value(ITEM_FIELD_FLAGS), GetItemEnchantments(item),
-        item->GetItemRandomPropertyId(), item->GetUInt32Value(ITEM_FIELD_DURABILITY), (uint32)GameTime::GetGameTime().count());
-
+        item->GetItemRandomPropertyId(), item->GetUInt32Value(ITEM_FIELD_DURABILITY), (uint32)GameTime::GetGameTime().count(),
+        item->GetGuidValue(ITEM_FIELD_CREATOR).GetCounter(), item->GetGuidValue(ITEM_FIELD_GIFTCREATOR).GetCounter());
 }
 
 bool ImprovedBank::DepositItem(ObjectGuid itemGuid, Player* player, uint32* count)
@@ -316,7 +317,8 @@ void ImprovedBank::BuildWithdrawItemCatalogue(const Player* player, PagedData& p
 {
     pagedData.Reset();
 
-    std::string baseQuery = "select mib.id, mib.owner_guid, mib.item_entry, mib.item_count, ifnull(ch.name, \"CHAR DELETED\") ch_name, duration, charges, flags, enchantments, randomPropertyId, durability, deposit_time from mod_improved_bank mib "
+    std::string baseQuery = "select mib.id, mib.owner_guid, mib.item_entry, mib.item_count, ifnull(ch.name, \"CHAR DELETED\") ch_name, duration, charges, flags, "
+        "enchantments, randomPropertyId, durability, deposit_time, creatorGuid, giftCreatorGuid from mod_improved_bank mib "
         "left outer join characters ch on mib.owner_guid = ch.guid where owner_account = {}";
     QueryResult result;
 
@@ -373,6 +375,8 @@ void ImprovedBank::BuildWithdrawItemCatalogue(const Player* player, PagedData& p
         itemIdentifier.flags = fields[7].Get<uint32>();
         itemIdentifier.enchants = fields[8].Get<std::string>();
         itemIdentifier.durability = fields[10].Get<uint32>();
+        itemIdentifier.creatorGuid = fields[12].Get<uint32>();
+        itemIdentifier.giftCreatorGuid = fields[13].Get<uint32>();
 
         pagedData.data.push_back(itemIdentifier);
     } while (result->NextRow());
@@ -405,7 +409,7 @@ bool ImprovedBank::LoadDataIntoItemFields(Item* item, std::string const& data, u
 }
 
 Item* ImprovedBank::CreateItem(Player* player, ItemPosCountVec const& dest, uint32 itemEntry, bool update, int32 randomPropertyId,
-    uint32 duration, const std::string& charges, uint32 flags, const std::string& enchants, uint32 durability)
+    uint32 duration, const std::string& charges, uint32 flags, const std::string& enchants, uint32 durability, uint32 creatorGuid, uint32 giftCreatorGuid)
 {
     uint32 count = 0;
     for (ItemPosCountVec::const_iterator itr = dest.begin(); itr != dest.end(); ++itr)
@@ -415,6 +419,9 @@ Item* ImprovedBank::CreateItem(Player* player, ItemPosCountVec const& dest, uint
     if (newItem != nullptr)
     {
         ItemTemplate const* itemTemplate = newItem->GetTemplate();
+
+        newItem->SetGuidValue(ITEM_FIELD_CREATOR, ObjectGuid::Create<HighGuid::Player>(creatorGuid));
+        newItem->SetGuidValue(ITEM_FIELD_GIFTCREATOR, ObjectGuid::Create<HighGuid::Player>(giftCreatorGuid));
 
         newItem->SetUInt32Value(ITEM_FIELD_DURATION, duration);
 
@@ -480,7 +487,8 @@ bool ImprovedBank::WithdrawItem(uint32 id, Player* player, PagedData& pagedData)
     InventoryResult msg = player->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, itemIdentifier->entry, itemIdentifier->count);
     if (msg == EQUIP_ERR_OK)
     {
-        Item* item = CreateItem(player, dest, itemIdentifier->entry, true, itemIdentifier->randomPropertyId, (uint32)itemIdentifier->duration, itemIdentifier->charges, itemIdentifier->flags, itemIdentifier->enchants, itemIdentifier->durability);
+        Item* item = CreateItem(player, dest, itemIdentifier->entry, true, itemIdentifier->randomPropertyId, (uint32)itemIdentifier->duration, itemIdentifier->charges,
+            itemIdentifier->flags, itemIdentifier->enchants, itemIdentifier->durability, itemIdentifier->creatorGuid, itemIdentifier->giftCreatorGuid);
         player->SendNewItem(item, itemIdentifier->count, true, false);
 
         RemoveItemFromDatabase(itemIdentifier->id);

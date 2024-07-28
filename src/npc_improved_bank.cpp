@@ -80,7 +80,7 @@ public:
                 if (count == 0)
                     ChatHandler(player->GetSession()).SendSysMessage("No reagents found to deposit.");
                 else
-                    ChatHandler(player->GetSession()).PSendSysMessage("Deposited a total of %d reagents.", count);
+                    ChatHandler(player->GetSession()).PSendSysMessage("Deposited a total of {} reagents.", count);
                 CloseGossipMenuFor(player);
                 return true;
             }

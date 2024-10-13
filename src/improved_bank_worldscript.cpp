@@ -19,6 +19,7 @@ public:
         sImprovedBank->SetSearchBank(sConfigMgr->GetOption<bool>("ImprovedBank.Deposit.SearchBank", false));
         sImprovedBank->SetShowDepositReagents(sConfigMgr->GetOption<bool>("ImprovedBank.Deposit.AllReagents", true));
         sImprovedBank->SetDepositReagentsSearchBank(sConfigMgr->GetOption<bool>("ImprovedBank.Deposit.AllReagents.Bank", false));
+        sImprovedBank->SetBlacklistedSubclasses(sConfigMgr->GetOption<std::string>("ImprovedBank.Deposit.AllReagents.BlacklistSubclass", "-1"));
     }
 };
 

@@ -67,6 +67,7 @@ private:
     bool searchBank;
     bool showDepositReagents;
     bool depositReagentsSearchBank;
+    std::set<int32> blacklistedSubclasses;
 
     std::string ItemIcon(uint32 entry, uint32 width, uint32 height, int x, int y) const;
     std::string ItemNameWithLocale(const Player* player, const ItemTemplate* itemTemplate, int32 randomPropertyId) const;
@@ -100,6 +101,8 @@ public:
     bool GetSearchBank() { return searchBank; }
     bool GetShowDepositReagents() { return showDepositReagents; }
     bool GetDepositReagentsSearchBank() { return depositReagentsSearchBank; }
+    void SetBlacklistedSubclasses(const std::string& subclasses);
+    bool IsBlacklistedSubclass(int32 subclass) const;
 
     std::string ItemIcon(uint32 entry) const;
 

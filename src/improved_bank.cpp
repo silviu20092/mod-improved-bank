@@ -31,6 +31,19 @@ ImprovedBank* ImprovedBank::instance()
     return &instance;
 }
 
+void ImprovedBank::SetBlacklistedSubclasses(const std::string& subclasses)
+{
+    blacklistedSubclasses.clear();
+    std::vector<std::string_view> tokenized = Acore::Tokenize(subclasses, ',', false);
+    for (auto it = tokenized.begin(); it != tokenized.end(); ++it)
+        blacklistedSubclasses.insert(*Acore::StringTo<int32>(*it));
+}
+
+bool ImprovedBank::IsBlacklistedSubclass(int32 subclass) const
+{
+    return blacklistedSubclasses.find(subclass) != blacklistedSubclasses.end();
+}
+
 std::string ImprovedBank::ItemIcon(uint32 entry, uint32 width, uint32 height, int x, int y) const
 {
     std::ostringstream ss;
@@ -516,7 +529,7 @@ void ImprovedBank::RemoveItemFromDatabase(uint32 id)
 bool ImprovedBank::IsReagent(const Item* item) const
 {
     const ItemTemplate* itemTemplate = item->GetTemplate();
-    return (itemTemplate->Class == ITEM_CLASS_TRADE_GOODS || itemTemplate->Class == ITEM_CLASS_GEM) && itemTemplate->GetMaxStackSize() > 1;
+    return ((itemTemplate->Class == ITEM_CLASS_TRADE_GOODS && !IsBlacklistedSubclass(itemTemplate->SubClass)) || itemTemplate->Class == ITEM_CLASS_GEM) && itemTemplate->GetMaxStackSize() > 1;
 }
 
 void ImprovedBank::DepositAllReagents(Player* player, uint32* totalCount)

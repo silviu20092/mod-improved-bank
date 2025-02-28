@@ -10,7 +10,7 @@ class improved_bank_account_script : public AccountScript
 public:
     improved_bank_account_script() : AccountScript("improved_bank_account_script") { }
 
-    void OnBeforeAccountDelete(uint32 accountId)
+    void OnBeforeAccountDelete(uint32 accountId) override
     {
         CharacterDatabase.Execute("DELETE FROM mod_improved_bank WHERE owner_account = {}", accountId);
     }

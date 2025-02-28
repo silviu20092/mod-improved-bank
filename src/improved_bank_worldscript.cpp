@@ -13,7 +13,7 @@ public:
     {
     }
 
-    void OnAfterConfigLoad(bool /*reload*/)
+    void OnAfterConfigLoad(bool /*reload*/) override
     {
         sImprovedBank->SetAccountWide(sConfigMgr->GetOption<bool>("ImprovedBank.AccountWide", true));
         sImprovedBank->SetSearchBank(sConfigMgr->GetOption<bool>("ImprovedBank.Deposit.SearchBank", false));

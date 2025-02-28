@@ -466,7 +466,7 @@ Item* ImprovedBank::CreateItem(Player* player, ItemPosCountVec const& dest, uint
         player->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_OWN_ITEM, itemEntry, count);
         newItem = player->StoreItem(dest, newItem, update);
 
-        sScriptMgr->OnStoreNewItem(player, newItem, count);
+        sScriptMgr->OnPlayerStoreNewItem(player, newItem, count);
     }
     return newItem;
 }
